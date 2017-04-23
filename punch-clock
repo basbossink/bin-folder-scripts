@@ -1,0 +1,32 @@
+#!/usr/bin/env zsh
+#set -x
+alias ledger="ledger -f ~/Dropbox/Personal/journals/timelog --date-format '%Y-%m-%d'"
+currentYear=$(date +%Y)
+begin="${currentYear}-01-01"
+workdays=$(ledger reg -n --begin ${begin} --daily| wc -l)
+hoursWorkedStr=$(ledger bal -n --begin ${begin} | tail -1 | tr -d ' ')
+unit=$(echo -n $hoursWorkedStr |tail -c 1)
+workedStr=$(echo $hoursWorkedStr | sed -e 's/.$//')
+case ${unit} in
+     m) worked=${workedStr} ;;
+     h) worked=$(echo  "${workedStr} * 60 " |bc ) ;;
+     *) echo -n "can't parse ledger output"; exit -1 ;;
+esac
+overTime=$(echo "${worked} - 8 * 60 * ${workdays}" | bc )
+echo "Number of work days ${workdays}"
+overTimeStr=$(python -c "from datetime import timedelta;print(timedelta(minutes=round(${overTime})))")
+echo "Over time is: ${overTimeStr}"
+timeToLeaveCommand=$(cat <<EOF
+from datetime import timedelta
+import datetime
+over=timedelta(minutes=round(${overTime}))
+now=datetime.datetime.now()
+leave=now - over
+if now.hour < 13:
+   leave = leave + timedelta(minutes=30)
+
+print(leave)
+EOF
+                  )
+leaveTime=$(python -c $timeToLeaveCommand)
+echo "Time to leave is: ${leaveTime}"
